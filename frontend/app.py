@@ -64,6 +64,10 @@ def show_expense_list():
     
     df = pd.DataFrame(st.session_state.expenses)
     
+    # Additional frontend normalization (redundant but safe)
+    if 'category' in df.columns:
+        df['category'] = df['category'].str.capitalize()
+    
     # Show data table
     st.dataframe(df, use_container_width=True)
     
@@ -75,16 +79,12 @@ def show_expense_list():
             category_summary = df.groupby("category")["amount"].sum().reset_index()
             fig = px.pie(category_summary, names='category', values='amount', title='Expenses by Category')
             st.plotly_chart(fig, use_container_width=True)
-        else:
-            st.warning("No category data available")
     
     with tab2:
         if 'category' in df.columns:
             category_summary = df.groupby("category")["amount"].sum().reset_index()
             fig = px.bar(category_summary, x='category', y='amount', title="Most Spent by Category", color='category')
             st.plotly_chart(fig, use_container_width=True)
-        else:
-            st.warning("No category data available")
 
 def show_add_expense_form():
     with st.expander("Add New Expense", expanded=False):
@@ -112,5 +112,4 @@ def main():
     show_expense_list()
 
 if __name__ == "__main__":
-
     main()

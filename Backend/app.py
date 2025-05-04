@@ -14,6 +14,9 @@ except Exception as e:
     print(f"Failed to initialize Firebase: {e}")
     db = None
 
+# List of valid categories (add more as needed)
+VALID_CATEGORIES = ["Food", "Transport", "Entertainment", "Bills", "Shopping", "Other"]
+
 @app.route('/api/expenses', methods=['GET'])
 def get_expenses():
     if not db:
@@ -21,7 +24,13 @@ def get_expenses():
     
     try:
         expenses_ref = db.collection('expenses')
-        expenses = [doc.to_dict() for doc in expenses_ref.stream()]
+        expenses = []
+        for doc in expenses_ref.stream():
+            expense = doc.to_dict()
+            # Normalize category (capitalize first letter and validate)
+            category = expense.get('category', 'Other').capitalize()
+            expense['category'] = category if category in VALID_CATEGORIES else 'Other'
+            expenses.append(expense)
         return jsonify(expenses)
     except Exception as e:
         return jsonify({"error": str(e)}), 500
@@ -33,10 +42,15 @@ def add_expense():
     
     try:
         data = request.json
+        # Normalize and validate category before saving
+        category = data.get('category', 'Other').capitalize()
+        if category not in VALID_CATEGORIES:
+            category = 'Other'
+            
         expense = Expense(
             name=data.get('name'),
             amount=data.get('amount'),
-            category=data.get('category', 'Uncategorized')
+            category=category
         )
         
         db.collection('expenses').add(expense.to_dict())
