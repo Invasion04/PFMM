@@ -55,6 +55,46 @@ def delete_expense(expense_id):
     except requests.exceptions.RequestException:
         st.error("Could not connect to the server")
 
+# 🔹 NEW: Summary function
+def show_summary():
+    st.subheader("📊 Expense Summary")
+
+    if not st.session_state.expenses:
+        st.info("No data to summarize.")
+        return
+
+    df = pd.DataFrame(st.session_state.expenses)
+
+    # Ensure correct types
+    df['amount'] = pd.to_numeric(df['amount'], errors='coerce')
+    df['date'] = pd.to_datetime(df['date'], errors='coerce')
+    df.dropna(subset=['amount', 'date'], inplace=True)
+
+    if df.empty:
+        st.warning("No valid data available for summary.")
+        return
+
+    total_expense = df['amount'].sum()
+    avg_expense = df['amount'].mean()
+    most_expensive_cat = df.groupby('category')['amount'].sum().idxmax()
+    most_frequent_cat = df['category'].mode().iloc[0]
+
+    # Monthly summary
+    df['month'] = df['date'].dt.to_period('M').astype(str)
+    monthly_summary = df.groupby('month')['amount'].sum().reset_index()
+
+    # Display metrics
+    col1, col2, col3, col4 = st.columns(4)
+    col1.metric("💸 Total Spent", f"${total_expense:,.2f}")
+    col2.metric("📈 Avg. Expense", f"${avg_expense:,.2f}")
+    col3.metric("🔥 Top Category", most_expensive_cat)
+    col4.metric("📊 Most Frequent", most_frequent_cat)
+
+    # Chart: Monthly spending
+    if not monthly_summary.empty:
+        fig = px.line(monthly_summary, x='month', y='amount', title="Monthly Spending Trend")
+        st.plotly_chart(fig, use_container_width=True)
+
 # UI Components
 def show_expense_list():
     st.subheader("Your Expenses")
@@ -63,15 +103,12 @@ def show_expense_list():
         return
     
     df = pd.DataFrame(st.session_state.expenses)
-    
-    # Additional frontend normalization (redundant but safe)
+
     if 'category' in df.columns:
         df['category'] = df['category'].str.capitalize()
     
-    # Show data table
     st.dataframe(df, use_container_width=True)
-    
-    # Show charts
+
     tab1, tab2 = st.tabs(["By Category", "Bar Chart"])
     
     with tab1:
@@ -79,7 +116,7 @@ def show_expense_list():
             category_summary = df.groupby("category")["amount"].sum().reset_index()
             fig = px.pie(category_summary, names='category', values='amount', title='Expenses by Category')
             st.plotly_chart(fig, use_container_width=True)
-    
+
     with tab2:
         if 'category' in df.columns:
             category_summary = df.groupby("category")["amount"].sum().reset_index()
@@ -95,7 +132,6 @@ def show_add_expense_form():
                 "Category",
                 ["Food", "Transport", "Entertainment", "Bills", "Shopping", "Other"]
             )
-            
             submitted = st.form_submit_button("Add Expense")
             if submitted and name and amount:
                 if add_expense(name, amount, category):
@@ -105,9 +141,9 @@ def show_add_expense_form():
 def main():
     st.title("💰 Personal Finance Manager")
     st.write("Track and manage your personal expenses")
-    
+
     fetch_expenses()
-    
+    show_summary()              # ✅ Added here
     show_add_expense_form()
     show_expense_list()
 
